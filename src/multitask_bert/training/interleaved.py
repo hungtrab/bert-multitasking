@@ -31,11 +31,14 @@ class InterleavedTrainer(MultitaskTrainer):
             sst_batch = next(sst_iter)
             sts_batch = next(sts_iter)
 
-            for batch_loss in (
-                self.sst_loss(sst_batch),
-                self.quora_loss(quora_batch),
-                self.sts_loss(sts_batch),
+            # forward → backward → step per task before next task's forward
+            # (shared encoder; see note in round_robin.py).
+            for loss_fn, batch in (
+                (self.sst_loss, sst_batch),
+                (self.quora_loss, quora_batch),
+                (self.sts_loss, sts_batch),
             ):
+                batch_loss = loss_fn(batch)
                 self.optimizer_step(batch_loss)
                 loss_sum += batch_loss.item(); loss_count += 1
 

@@ -32,11 +32,19 @@ class RoundRobinTrainer(MultitaskTrainer):
             quora_batch = next(quora_iter)
             sts_batch = next(sts_iter)
 
-            for batch_loss in (
-                self.sst_loss(sst_batch),
-                self.quora_loss(quora_batch),
-                self.sts_loss(sts_batch),
+            # IMPORTANT: forward → backward → step must complete for one task
+            # before the next task's forward pass. The three tasks share the
+            # BERT encoder; if we pre-computed all three losses first, the
+            # optimizer step on task 1 would mutate encoder weights in-place
+            # and invalidate the autograd graphs of tasks 2 and 3
+            # ("variable modified by an inplace operation"). Using lazy
+            # callables keeps each task's forward right before its step.
+            for loss_fn, batch in (
+                (self.sst_loss, sst_batch),
+                (self.quora_loss, quora_batch),
+                (self.sts_loss, sts_batch),
             ):
+                batch_loss = loss_fn(batch)
                 self.optimizer_step(batch_loss)
                 loss_sum += batch_loss.item(); loss_count += 1
 
