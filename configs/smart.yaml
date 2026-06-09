@@ -1,0 +1,10 @@
+_base_: rich_relational.yaml
+experiment_name: smart
+
+losses:
+  smart:
+    enabled: true
+    epsilon: 1.0e-5
+    lambda_s: 1.0
+    bregman_mu: 1.0
+    bregman_beta: 0.999

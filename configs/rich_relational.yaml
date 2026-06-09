@@ -1,0 +1,5 @@
+_base_: interleaved.yaml
+experiment_name: rich_relational
+
+model:
+  use_relational_layer: true

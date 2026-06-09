@@ -1,0 +1,62 @@
+# Base configuration. Other YAML files inherit from this via `_base_`.
+# Resolved at load time by src/multitask_bert/utils/config.py.
+
+experiment_name: default
+
+seed: 11711
+
+paths:
+  data_dir: data
+  output_dir: runs/${experiment_name}
+
+model:
+  encoder: bert-base-uncased        # any HuggingFace BERT-like checkpoint
+  load_pretrained: true             # false = random-init local BERT, useful for smoke tests
+  hidden_size: 768
+  hidden_dropout: 0.1
+  freeze_encoder: false             # 'pretrain' (true) vs 'finetune' (false)
+  use_relational_layer: false       # rich relational head for Para+STS
+
+data:
+  sst:
+    train: ids-sst-train.csv
+    dev: ids-sst-dev.csv
+    test: ids-sst-test-student.csv
+    num_classes: 5
+  quora:
+    train: quora-train.csv
+    dev: quora-dev.csv
+    test: quora-test-student.csv
+  sts:
+    train: sts-train.csv
+    dev: sts-dev.csv
+    test: sts-test-student.csv
+  max_seq_len: 128
+
+training:
+  strategy: round_robin             # round_robin | interleaved
+  num_epochs: 10
+  batch_size: 32                    # used for all tasks in round_robin
+  task_batch_sizes:                 # used in interleaved
+    sst: 16
+    quora: 64
+    sts: 16
+  learning_rate: 1.0e-5
+  weight_decay: 0.01
+  warmup_steps: 200
+  grad_clip: 1.0
+  log_interval: 50
+  eval_interval_steps: null          # null -> evaluate at end of each epoch
+  amp: true                          # mixed-precision
+
+losses:
+  smart:
+    enabled: false
+    epsilon: 1.0e-5                  # adversarial perturbation budget
+    lambda_s: 1.0                    # regularisation weight
+    bregman_mu: 1.0                  # proximal step weight
+    bregman_beta: 0.999              # EMA factor
+
+evaluation:
+  metrics: [accuracy, pearson, f1]
+  prediction_subdir: predictions

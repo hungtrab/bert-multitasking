@@ -1,0 +1,11 @@
+_base_: default.yaml
+experiment_name: interleaved
+
+training:
+  strategy: interleaved
+  num_epochs: 5                     # Quora is huge so fewer epochs
+  task_batch_sizes:
+    sst: 16
+    quora: 64
+    sts: 16
+  learning_rate: 1.0e-5
