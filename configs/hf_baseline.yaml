@@ -1,0 +1,16 @@
+_base_: default.yaml
+experiment_name: hf_baseline
+
+# Same round-robin recipe as round_robin.yaml, but the encoder is loaded
+# straight from transformers.AutoModel instead of the self-implemented MiniBert.
+# Purpose: parity check — if MiniBert is implemented correctly, the two runs
+# should reach near-identical task metrics.
+
+model:
+  encoder_backend: hf
+
+training:
+  strategy: round_robin
+  num_epochs: 10
+  batch_size: 32
+  learning_rate: 1.0e-5

@@ -11,6 +11,7 @@ paths:
 
 model:
   encoder: bert-base-uncased        # any HuggingFace BERT-like checkpoint
+  encoder_backend: mini             # mini = self-implemented MiniBert | hf = transformers AutoModel (baseline/parity)
   load_pretrained: true             # false = random-init local BERT, useful for smoke tests
   hidden_size: 768
   hidden_dropout: 0.1

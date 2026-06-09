@@ -1,6 +1,6 @@
 """Encoder + task heads + multitask wrapper."""
 
-from .bert_encoder import BertEncoder, build_tokenizer
+from .bert_encoder import BertEncoder, HFBertEncoder, build_encoder, build_tokenizer
 from .heads import (
     SentimentHead,
     ParaphraseHead,
@@ -11,6 +11,8 @@ from .multitask import MultitaskBERT
 
 __all__ = [
     "BertEncoder",
+    "HFBertEncoder",
+    "build_encoder",
     "build_tokenizer",
     "SentimentHead",
     "ParaphraseHead",

@@ -15,7 +15,7 @@ from typing import Optional
 import torch
 from torch import nn
 
-from .bert_encoder import BertEncoder
+from .bert_encoder import build_encoder
 from .heads import ParaphraseHead, SentimentHead, STSCosineHead
 from .relational import (
     RelationalParaphraseHead,
@@ -34,8 +34,9 @@ class MultitaskOutputs:
 class MultitaskBERT(nn.Module):
     def __init__(self, cfg):
         super().__init__()
-        self.encoder = BertEncoder(
+        self.encoder = build_encoder(
             cfg.model.encoder,
+            backend=str(cfg.model.get("encoder_backend", "mini")),
             freeze=cfg.model.freeze_encoder,
             load_pretrained=bool(cfg.model.get("load_pretrained", True)),
         )

@@ -361,3 +361,65 @@ class BertEncoder(nn.Module):
 
     def embed_tokens(self, token_ids: torch.Tensor) -> torch.Tensor:
         return self.bert.embed_tokens(token_ids)
+
+
+class HFBertEncoder(nn.Module):
+    """Reference encoder that loads ``transformers.AutoModel`` directly.
+
+    Used ONLY as a baseline/parity check against the self-implemented
+    :class:`BertEncoder` (MiniBert). If MiniBert is correct, the two should
+    reach near-identical task metrics. Exposes the same public contract.
+    """
+
+    def __init__(
+        self,
+        name: str = "bert-base-uncased",
+        *,
+        freeze: bool = False,
+        load_pretrained: bool = True,
+    ):
+        super().__init__()
+        from transformers import AutoConfig, AutoModel
+
+        if load_pretrained:
+            self.bert = AutoModel.from_pretrained(name)
+        else:
+            self.bert = AutoModel.from_config(AutoConfig.from_pretrained(name))
+        self.hidden_size = int(self.bert.config.hidden_size)
+        self.set_frozen(freeze)
+
+    def set_frozen(self, frozen: bool) -> None:
+        for param in self.bert.parameters():
+            param.requires_grad = not frozen
+
+    def forward(self, token_ids: torch.Tensor, attention_mask: torch.Tensor) -> EncoderOutput:
+        out = self.bert(input_ids=token_ids, attention_mask=attention_mask)
+        sequence = out.last_hidden_state
+        pooled = out.pooler_output if out.pooler_output is not None else sequence[:, 0]
+        return EncoderOutput(cls=pooled, sequence=sequence)
+
+    def forward_from_embeddings(
+        self,
+        embeddings: torch.Tensor,
+        attention_mask: torch.Tensor,
+    ) -> EncoderOutput:
+        out = self.bert(inputs_embeds=embeddings, attention_mask=attention_mask)
+        sequence = out.last_hidden_state
+        pooled = out.pooler_output if out.pooler_output is not None else sequence[:, 0]
+        return EncoderOutput(cls=pooled, sequence=sequence)
+
+    def embed_tokens(self, token_ids: torch.Tensor) -> torch.Tensor:
+        return self.bert.embeddings.word_embeddings(token_ids)
+
+
+def build_encoder(name: str, *, backend: str = "mini",
+                  freeze: bool = False, load_pretrained: bool = True):
+    """Factory: choose the self-implemented MiniBert or the HF reference.
+
+    ``backend``: ``"mini"`` (default, self-implemented) | ``"hf"`` (transformers).
+    """
+    if backend == "hf":
+        return HFBertEncoder(name, freeze=freeze, load_pretrained=load_pretrained)
+    if backend == "mini":
+        return BertEncoder(name, freeze=freeze, load_pretrained=load_pretrained)
+    raise ValueError(f"Unknown encoder backend '{backend}' (expected 'mini' or 'hf')")
