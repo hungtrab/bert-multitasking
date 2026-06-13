@@ -1,0 +1,9 @@
+_base_: report_best_self_impl.yaml
+experiment_name: report_best_self_impl_adamw_20e_plus10_linear_lr5e6
+
+training:
+  num_epochs: 10
+  learning_rate: 5.0e-6
+  init_checkpoint: runs/report_best_self_impl_20e/best.pt
+  lr_schedule: linear
+  warmup_ratio: 0.05

@@ -1,0 +1,5 @@
+_base_: report_best_self_impl_muon_ftsafe.yaml
+experiment_name: report_best_self_impl_muon_ftsafe_20e
+
+training:
+  num_epochs: 20

@@ -1,0 +1,9 @@
+_base_: report_best_self_impl.yaml
+experiment_name: report_best_self_impl_20e_cosine_warmup_lr2e5
+
+training:
+  num_epochs: 20
+  learning_rate: 2.0e-5
+  weight_decay: 0.01
+  lr_schedule: cosine
+  warmup_ratio: 0.1

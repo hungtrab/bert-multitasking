@@ -13,17 +13,19 @@ from itertools import cycle
 import torch
 from tqdm import tqdm
 
+from .steps import round_robin_steps
 from .trainer import MultitaskTrainer
 
 
 class RoundRobinTrainer(MultitaskTrainer):
     def train_one_epoch(self) -> None:
         self.model.train()
-        sst_iter = iter(self.loaders.sst_train)
-        quora_iter = cycle(self.loaders.quora_train)   # often longer
-        sts_iter = cycle(self.loaders.sts_train)        # often shorter
-        # We iterate as many times as the SST loader has batches.
-        n_steps = len(self.loaders.sst_train)
+        sst_iter = cycle(self.loaders.sst_train)
+        quora_iter = cycle(self.loaders.quora_train)
+        sts_iter = cycle(self.loaders.sts_train)
+
+        step_mode = str(self.cfg.training.get("round_robin_steps", "sts"))
+        n_steps = round_robin_steps(self.loaders, step_mode)
         pbar = tqdm(range(n_steps), desc=f"epoch {self.state.epoch + 1}")
         loss_sum = 0.0; loss_count = 0
 
@@ -39,12 +41,12 @@ class RoundRobinTrainer(MultitaskTrainer):
             # and invalidate the autograd graphs of tasks 2 and 3
             # ("variable modified by an inplace operation"). Using lazy
             # callables keeps each task's forward right before its step.
-            for loss_fn, batch in (
-                (self.sst_loss, sst_batch),
-                (self.quora_loss, quora_batch),
-                (self.sts_loss, sts_batch),
+            for task, loss_fn, batch in (
+                ("sst", self.sst_loss, sst_batch),
+                ("quora", self.quora_loss, quora_batch),
+                ("sts", self.sts_loss, sts_batch),
             ):
-                batch_loss = loss_fn(batch)
+                batch_loss = loss_fn(batch) * self.task_loss_weight(task)
                 self.optimizer_step(batch_loss)
                 loss_sum += batch_loss.item(); loss_count += 1
 

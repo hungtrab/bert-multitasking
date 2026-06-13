@@ -1,0 +1,14 @@
+_base_: report_best_self_impl.yaml
+experiment_name: report_best_hf_10e
+
+model:
+  encoder_backend: hf
+
+training:
+  num_epochs: 10
+  batch_size: 32
+  eval_batch_size: 32
+  task_batch_sizes:
+    sst: 3
+    quora: 32
+    sts: 2

@@ -46,7 +46,7 @@ class ParaphraseHead(nn.Module):
 
 
 class STSCosineHead(nn.Module):
-    """Cosine similarity rescaled to the STS range ``[0, 5]``."""
+    """Cosine similarity rescaled to the configured STS training range."""
 
     def __init__(self, *, scale: float = 5.0):
         super().__init__()
@@ -54,4 +54,4 @@ class STSCosineHead(nn.Module):
 
     def forward(self, hu: torch.Tensor, hv: torch.Tensor) -> torch.Tensor:
         sim = F.cosine_similarity(hu, hv, dim=-1)        # in [-1, 1]
-        return (sim + 1.0) * 0.5 * self.scale             # -> [0, 5]
+        return (sim + 1.0) * 0.5 * self.scale

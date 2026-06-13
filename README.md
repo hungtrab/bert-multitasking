@@ -37,6 +37,53 @@ make eval  CHECKPOINT=runs/round_robin/best.pt        # evaluate
 make test                                             # unit tests
 ```
 
+## Gradio demo
+
+The demo loads one checkpoint and exposes three inference modes:
+
+* SST sentiment classification.
+* Quora-style paraphrase / duplicate question detection.
+* STS semantic similarity scoring.
+
+Install Gradio if it is not available:
+
+```bash
+pip install gradio
+```
+
+Run with the best self-implemented checkpoint:
+
+```bash
+PYTHONPATH=src python -m scripts.demo_gradio \
+  --config configs/report_best_self_impl_20e_linear_warmup_lr2e5.yaml \
+  --checkpoint runs/report_best_self_impl_20e_linear_warmup_lr2e5/best.pt \
+  --server-name 127.0.0.1 \
+  --server-port 7860
+```
+
+Then open `http://127.0.0.1:7860`.
+
+Run the product-style student support demo:
+
+```bash
+PYTHONPATH=src python -m scripts.demo_student_support \
+  --config configs/report_best_self_impl_20e_linear_warmup_lr2e5.yaml \
+  --checkpoint runs/report_best_self_impl_20e_linear_warmup_lr2e5/best.pt \
+  --server-name 127.0.0.1 \
+  --server-port 7861
+```
+
+This demo uses the same checkpoint but wraps the tasks as a course support
+assistant:
+
+* SST predicts whether the student sounds frustrated or positive.
+* Para checks whether the question duplicates an existing FAQ.
+* STS ranks related course documents or support posts.
+
+Uploading a real document set is optional. Without upload, the demo uses a
+small built-in knowledge base. For a more realistic demo, upload a CSV with
+columns such as `title`, `question`, `answer`, and `content`.
+
 ## Layout
 
 ```

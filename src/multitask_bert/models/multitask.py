@@ -54,7 +54,7 @@ class MultitaskBERT(nn.Module):
             self.sts_head = RelationalSTSHead(H, dropout=dropout)
         else:
             self.paraphrase_head = ParaphraseHead(H, dropout=dropout)
-            self.sts_head = STSCosineHead(scale=5.0)
+            self.sts_head = STSCosineHead(scale=float(cfg.model.get("sts_output_scale", 1.0)))
 
     # -------- single-sentence forward (SST) -------------------------------
 

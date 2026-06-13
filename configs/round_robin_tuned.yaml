@@ -1,0 +1,16 @@
+_base_: round_robin.yaml
+experiment_name: round_robin_tuned
+
+model:
+  hidden_dropout: 0.1
+  sts_output_scale: 5.0
+
+training:
+  batch_size: 32
+  round_robin_steps: sst
+  weight_decay: 0.01
+  lr_schedule: linear
+  warmup_steps: 200
+
+losses:
+  sts_label_scale: 1.0

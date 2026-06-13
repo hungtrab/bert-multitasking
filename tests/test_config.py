@@ -9,7 +9,7 @@ CONFIG_DIR = Path(__file__).resolve().parents[1] / "configs"
 def test_default_loads():
     cfg = load_config(CONFIG_DIR / "default.yaml")
     assert cfg.model.encoder == "bert-base-uncased"
-    assert cfg.training.batch_size == 32
+    assert cfg.training.batch_size == 64
     assert cfg.losses.smart.enabled is False
 
 
@@ -24,7 +24,7 @@ def test_inheritance():
 def test_smart_enables_smart():
     cfg = load_config(CONFIG_DIR / "smart.yaml")
     assert cfg.losses.smart.enabled is True
-    assert cfg.model.use_relational_layer is True   # inherited from rich_relational
+    assert cfg.model.use_relational_layer is False
     assert cfg.experiment_name == "smart"
 
 

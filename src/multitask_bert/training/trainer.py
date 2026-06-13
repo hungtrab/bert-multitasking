@@ -20,6 +20,7 @@ from ..evaluation.evaluator import MultitaskEvaluator, MultitaskMetrics
 from ..losses import SmartRegulariser
 from ..utils import get_logger
 from .optim import build_optimizer, build_scheduler
+from .steps import interleaved_steps, round_robin_steps
 
 
 @dataclass
@@ -50,11 +51,12 @@ class MultitaskTrainer:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.log = get_logger("mtbert.trainer", log_file=self.output_dir / "train.log")
 
-        # Compute number of training steps for the scheduler. Round-robin
-        # processes one batch per task per "round", so the longest loader
-        # dictates length. Interleaved trainers should override.
-        max_len = max(len(loaders.sst_train), len(loaders.quora_train), len(loaders.sts_train))
-        self.num_training_steps = int(cfg.training.num_epochs) * 3 * max_len
+        if str(cfg.training.strategy) == "interleaved":
+            steps_per_epoch = interleaved_steps(loaders)
+        else:
+            step_mode = str(cfg.training.get("round_robin_steps", "sts"))
+            steps_per_epoch = round_robin_steps(loaders, step_mode)
+        self.num_training_steps = int(cfg.training.num_epochs) * 3 * steps_per_epoch
 
         self.optimizer = build_optimizer(self.model, cfg)
         self.scheduler = build_scheduler(self.optimizer, cfg, self.num_training_steps)
@@ -74,6 +76,10 @@ class MultitaskTrainer:
             )
 
         self.state = TrainState()
+
+    def task_loss_weight(self, task: str) -> float:
+        weights = self.cfg.training.get("task_loss_weights", {})
+        return float(weights.get(task, 1.0))
 
     # ------------------------------------------------------------------ public
 
@@ -133,14 +139,82 @@ class MultitaskTrainer:
         ids2 = batch.token_ids_2.to(self.device); m2 = batch.attention_mask_2.to(self.device)
         y = batch.labels.to(self.device).float()
         logit = self.model.predict_paraphrase(ids1, m1, ids2, m2)
-        return F.binary_cross_entropy_with_logits(logit, y)
+        loss = F.binary_cross_entropy_with_logits(logit, y)
+        if self.smart is not None:
+            loss = loss + self._smart_pair(
+                ids1, m1, ids2, m2,
+                clean_output=logit,
+                task="para",
+                divergence="mse",
+            )
+        return loss
 
     def sts_loss(self, batch) -> torch.Tensor:
         ids1 = batch.token_ids_1.to(self.device); m1 = batch.attention_mask_1.to(self.device)
         ids2 = batch.token_ids_2.to(self.device); m2 = batch.attention_mask_2.to(self.device)
-        y = batch.labels.to(self.device).float()
+        y = batch.labels.to(self.device).float() / float(self.cfg.losses.get("sts_label_scale", 5.0))
         score = self.model.predict_similarity(ids1, m1, ids2, m2)
-        return F.mse_loss(score, y)
+        loss = F.mse_loss(score, y)
+        if self.smart is not None:
+            loss = loss + self._smart_pair(
+                ids1, m1, ids2, m2,
+                clean_output=score,
+                task="sts",
+                divergence="mse",
+            )
+        return loss
+
+    def _pair_output_from_cls(self, hu: torch.Tensor, hv: torch.Tensor, *, task: str) -> torch.Tensor:
+        if bool(self.model.use_relational):
+            shared = self.model.relational(hu, hv)
+            if task == "para":
+                return self.model.paraphrase_head(shared)
+            return self.model.sts_head(shared)
+        if task == "para":
+            return self.model.paraphrase_head(hu, hv)
+        return self.model.sts_head(hu, hv)
+
+    def _smart_pair(
+        self,
+        ids1: torch.Tensor,
+        m1: torch.Tensor,
+        ids2: torch.Tensor,
+        m2: torch.Tensor,
+        *,
+        clean_output: torch.Tensor,
+        task: str,
+        divergence: str,
+    ) -> torch.Tensor:
+        """SMART perturbation for both sides of a sentence-pair task."""
+        if self.smart is None:  # pragma: no cover - defensive
+            return torch.zeros((), device=self.device)
+
+        clean_h2 = self.model.encoder(ids2, m2).cls.detach()
+
+        def fwd_left(emb):
+            h1 = self.model.encoder.forward_from_embeddings(emb, m1).cls
+            return self._pair_output_from_cls(h1, clean_h2, task=task)
+
+        left = self.smart(
+            self.model, encoder=self.model.encoder,
+            input_ids=ids1, attention_mask=m1,
+            forward_fn=fwd_left, clean_output=clean_output,
+            divergence=divergence,
+        )
+
+        clean_h1 = self.model.encoder(ids1, m1).cls.detach()
+
+        def fwd_right(emb):
+            h2 = self.model.encoder.forward_from_embeddings(emb, m2).cls
+            return self._pair_output_from_cls(clean_h1, h2, task=task)
+
+        right = self.smart(
+            self.model, encoder=self.model.encoder,
+            input_ids=ids2, attention_mask=m2,
+            forward_fn=fwd_right, clean_output=clean_output,
+            divergence=divergence,
+        )
+        return 0.5 * (left + right)
 
     # ------------------------------------------------------------------ optim step
 

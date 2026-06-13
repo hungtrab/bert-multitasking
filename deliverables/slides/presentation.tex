@@ -1,0 +1,347 @@
+\documentclass[t, aspectratio=169]{beamer}
+\usepackage[utf8]{vietnam}
+\usepackage{amsthm,amsmath,amssymb}
+\usepackage{lmodern}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\def\slideContentLeftMargin{0.7cm}
+\def\slideContentRightMargin{1cm}
+\def\hustHeaderHeight{1cm}
+\def\slideContentBotMargin{3.5cm}
+
+\usepackage[blue, 169]{beamerthemeHUST}
+
+\renewcommand{\titlePageTitleX}{-0.35cm}
+\renewcommand{\titlePageTitleY}{-0.2cm}
+\renewcommand{\hustTitleAlign}{\alignLeft}
+\renewcommand{\hustSubtitleAlign}{\alignLeft}
+\renewcommand{\hustAuthorAlign}{\alignLeft}
+\renewcommand{\hustInstAlign}{\alignLeft}
+
+\newcommand{\placeholderbox}[2]{
+    \fbox{
+        \begin{minipage}[c][3.7cm][c]{0.92\textwidth}
+            \centering
+            \textbf{#1}\\[0.4em]
+            \small #2
+        \end{minipage}
+    }
+}
+
+\title{MULTITASK BERT FOR STUDENT SUPPORT UNDERSTANDING}
+\subtitle{Sentiment Analysis, Paraphrase Detection, and Semantic Textual Similarity}
+\author{\texorpdfstring{Vu Thuong Tin \\ Chu Anh Duc \\ Tran Quang Hung \\ Nguyen Xuan Khai \\ Do Dang Vu}{Vu Thuong Tin, Chu Anh Duc, Tran Quang Hung, Nguyen Xuan Khai, Do Dang Vu}}
+\institute{School of Information and Communication Technology -- HUST}
+
+\begin{document}
+
+\hustintropage{NLP Course Project}
+\husttitlepage
+
+\begin{frame}{Outline}
+    \tableofcontents[hideallsubsections]
+\end{frame}
+
+\resetPageCount
+\showPageNumber
+\useStyleHustFull
+\useThinBar
+
+\section{Problem}
+
+\begin{frame}{1. Project Goal}
+    \textbf{Goal:} build a self-implemented multitask BERT system for three related NLP tasks.
+
+    \vspace{0.5em}
+    \begin{itemize}
+        \item \textbf{SST:} five-class sentiment classification.
+        \item \textbf{Quora Question Pairs:} binary paraphrase detection.
+        \item \textbf{STS-B:} semantic textual similarity regression.
+    \end{itemize}
+
+    \vspace{0.7em}
+    The same checkpoint is also used in a student-support demo: detect sentiment, identify duplicate questions, and retrieve relevant handbook entries.
+\end{frame}
+
+\begin{frame}{2. Why Multitask Learning?}
+    \begin{columns}[T]
+        \begin{column}{0.50\textwidth}
+            \begin{block}{Training separately}
+                \begin{itemize}
+                    \item Each task learns its own representation.
+                    \item STS has less data and is harder to stabilize.
+                    \item Similar sentence-pair signals are not shared.
+                \end{itemize}
+            \end{block}
+        \end{column}
+        \begin{column}{0.46\textwidth}
+            \begin{alertblock}{Our approach}
+                Use one shared BERT encoder with task-specific heads. Paraphrase and STS additionally share a relational layer because both compare sentence pairs.
+            \end{alertblock}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\section{Model}
+
+\begin{frame}{3. BERT Architecture}
+    \begin{columns}[T]
+        \begin{column}{0.36\textwidth}
+            \begin{block}{Core blocks}
+                \begin{itemize}
+                    \item Token ids
+                    \item Token embeddings
+                    \item Position embeddings
+                    \item Segment embeddings
+                    \item Self-attention
+                    \item Feed-forward
+                    \item Residual + LayerNorm
+                \end{itemize}
+            \end{block}
+        \end{column}
+        \begin{column}{0.58\textwidth}
+            \begin{alertblock}{Diagram placeholder}
+                \begin{itemize}
+                    \item Insert BERT diagram
+                    \item Input $\rightarrow$ embeddings
+                    \item Encoder stack
+                    \item \texttt{[CLS]} output
+                \end{itemize}
+            \end{alertblock}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{4. System Architecture}
+    \begin{center}
+    \small
+    \begin{tabular}{lll}
+    \toprule
+    Component & Role & Main file \\
+    \midrule
+    Self-implemented BERT & Shared encoder & \texttt{bert\_encoder.py} \\
+    SST head & 5-class classifier & \texttt{heads.py} \\
+    Paraphrase head & Binary classifier & \texttt{heads.py} \\
+    STS head & Similarity regressor & \texttt{heads.py} \\
+    Relational layer & Shared Para--STS features & \texttt{relational.py} \\
+    Trainer & Interleaved multitask training & \texttt{training/} \\
+    \bottomrule
+    \end{tabular}
+    \end{center}
+
+    \vspace{0.6em}
+    The encoder forward pass does not call \texttt{transformers.AutoModel}. It implements embeddings, attention, feed-forward layers, residual paths, layer normalization, and the pooler directly.
+\end{frame}
+
+\begin{frame}{5. Rich Relational Layer}
+    Paraphrase and STS both compare sentence pairs, so they share an intermediate interaction layer.
+
+    \[
+        z = \frac{h_u \odot h_v}{\|h_u\|_2\|h_v\|_2+\epsilon}
+    \]
+
+    \begin{itemize}
+        \item $h_u, h_v$: pooled BERT vectors for two sentences.
+        \item Element-wise interaction keeps more information than scalar cosine similarity.
+        \item The shared layer helps STS benefit from the larger Quora paraphrase dataset.
+    \end{itemize}
+\end{frame}
+
+\section{Training}
+
+\begin{frame}{6. Training Pipeline}
+    \begin{columns}[T]
+        \begin{column}{0.44\textwidth}
+            \begin{block}{Steps}
+                \begin{itemize}
+                    \item Load tokenizer
+                    \item Load BERT weights
+                    \item Build dataloaders
+                    \item Interleaved batches
+                    \item Task losses
+                    \item Save best checkpoint
+                \end{itemize}
+            \end{block}
+        \end{column}
+        \begin{column}{0.50\textwidth}
+            \begin{alertblock}{Diagram placeholder}
+                \begin{itemize}
+                    \item Insert training flow
+                    \item SST / Para / STS
+                    \item Shared encoder
+                    \item Task heads
+                    \item Aggregate score
+                \end{itemize}
+            \end{alertblock}
+        \end{column}
+    \end{columns}
+
+    \vspace{0.3em}
+    \small Best recipe: AdamW, LR $2e^{-5}$, 20 epochs, linear warmup/decay.
+\end{frame}
+
+\begin{frame}{7. Self-Implementation Check}
+    \begin{block}{We re-coded BERT}
+        Full encoder implemented from scratch:
+        \begin{itemize}
+            \item No \texttt{AutoModel} forward pass.
+            \item Max hidden-state diff: $4.29 \times 10^{-6}$.
+            \item Self-impl score: \textbf{0.759}.
+            \item HF baseline score: 0.761.
+        \end{itemize}
+    \end{block}
+
+    \vspace{0.5em}
+    The custom encoder is numerically faithful and nearly matches the library-backed model.
+\end{frame}
+
+\section{Results}
+
+\begin{frame}{8. Evaluation Metric}
+    Each task has its own metric:
+    \begin{itemize}
+        \item SST: accuracy.
+        \item Paraphrase: accuracy.
+        \item STS: Pearson correlation.
+    \end{itemize}
+
+    \vspace{0.6em}
+    Aggregate score:
+    \[
+        S = \frac{\text{SST}_{acc} + \text{Para}_{acc} + (\text{STS}_{r}+1)/2}{3}
+    \]
+
+    STS Pearson correlation is normalized from $[-1,1]$ to $[0,1]$ before averaging.
+\end{frame}
+
+\begin{frame}{9. Main Results}
+    \begin{center}
+    \small
+    \begin{tabular}{lcccc}
+    \toprule
+    Model & SST & Para & STS & Score \\
+    \midrule
+    Self-impl AdamW linear 20e & 0.520 & \textbf{0.864} & 0.785 & \textbf{0.759} \\
+    HF sanity baseline 10e & \textbf{0.526} & 0.861 & \textbf{0.790} & 0.761 \\
+    Self-impl AdamW constant LR & 0.505 & 0.860 & 0.784 & 0.752 \\
+    Self-impl Muon safe 20e & 0.523 & 0.851 & 0.750 & 0.750 \\
+    Muon high-LR early run & 0.262 & 0.720 & 0.145 & 0.518 \\
+    \bottomrule
+    \end{tabular}
+    \end{center}
+
+    \vspace{0.4em}
+    AdamW with linear warmup/decay is the best self-implemented setup. The HF backend is only a sanity baseline, not the main submission path.
+\end{frame}
+
+\begin{frame}{10. AdamW Beats Muon}
+    \begin{columns}[T]
+        \begin{column}{0.56\textwidth}
+            \includegraphics[width=\textwidth]{adamw_vs_muon_history.png}
+        \end{column}
+        \begin{column}{0.40\textwidth}
+            \begin{block}{Decision}
+                \begin{itemize}
+                    \item AdamW is clearly better.
+                    \item Muon damages pretrained weights.
+                    \item Para / STS drop sharply.
+                    \item Final choice: AdamW.
+                \end{itemize}
+            \end{block}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\section{Demo}
+
+\begin{frame}{11. Demo A: Checkpoint Inference}
+    \begin{columns}[T]
+        \begin{column}{0.48\textwidth}
+            \begin{block}{Purpose}
+                Load one checkpoint and test the three benchmark modes directly:
+                \begin{itemize}
+                    \item SST sentiment prediction.
+                    \item Paraphrase probability.
+                    \item STS similarity score.
+                \end{itemize}
+            \end{block}
+            \small \texttt{scripts/demo\_gradio.py}
+        \end{column}
+        \begin{column}{0.48\textwidth}
+            \placeholderbox{Screenshot Placeholder}{Replace with the Gradio checkpoint inference screen.}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{12. Demo B: Smart Student Support}
+    \begin{columns}[T]
+        \begin{column}{0.48\textwidth}
+            \begin{block}{Product workflow}
+                \begin{itemize}
+                    \item Detect student sentiment or urgency.
+                    \item Check whether a new question duplicates an FAQ.
+                    \item Rank HUST handbook entries by semantic similarity.
+                \end{itemize}
+            \end{block}
+            \small \texttt{scripts/demo\_student\_support.py}
+        \end{column}
+        \begin{column}{0.48\textwidth}
+            \placeholderbox{Screenshot Placeholder}{Replace with the Smart Student Support Assistant screen.}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{13. Demo Commands}
+    \small
+    \begin{block}{Checkpoint inference demo}
+    \texttt{PYTHONPATH=src python -m scripts.demo\_gradio \textbackslash}\\
+    \texttt{\quad --config configs/report\_best\_self\_impl\_20e\_linear\_warmup\_lr2e5.yaml \textbackslash}\\
+    \texttt{\quad --checkpoint runs/report\_best\_self\_impl\_20e\_linear\_warmup\_lr2e5/best.pt}
+    \end{block}
+
+    \begin{block}{Smart student support demo}
+    \texttt{PYTHONPATH=src python -m scripts.demo\_student\_support \textbackslash}\\
+    \texttt{\quad --config configs/report\_best\_self\_impl\_20e\_linear\_warmup\_lr2e5.yaml \textbackslash}\\
+    \texttt{\quad --checkpoint runs/report\_best\_self\_impl\_20e\_linear\_warmup\_lr2e5/best.pt}
+    \end{block}
+\end{frame}
+
+\section{Conclusion}
+
+\begin{frame}{14. Conclusion}
+    \begin{itemize}
+        \item We re-coded the full BERT encoder.
+        \item Max hidden-state diff: $4.29\times10^{-6}$.
+        \item Self-impl score: \textbf{0.759}.
+        \item HF baseline: 0.761.
+        \item AdamW clearly beats Muon.
+        \item Muon damages pretrained weights.
+        \item Two demos show both benchmark inference and a concrete student-support use case.
+    \end{itemize}
+
+    \vspace{0.5em}
+    Future work: better STS calibration, dynamic task weighting, and stronger relational sentence-pair features.
+\end{frame}
+
+\hustcontactpage{\hfill THANK YOU \hfill}{
+    \textbf{Project:} Multitask BERT for Student Support Understanding \\
+    \textbf{Repository:} \texttt{multitask-bert-v2} \\
+    \vspace{0.5cm}
+    \textit{Q\&A}
+}
+
+\useStyleLogoOnly
+\setbeamertemplate{bibliography item}[text]
+
+\begin{frame}{References}
+    \begin{thebibliography}{9}
+        \bibitem{bert} Devlin et al., \emph{BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding}, 2019.
+        \bibitem{mtdnn} Liu et al., \emph{Multi-Task Deep Neural Networks for Natural Language Understanding}, 2019.
+        \bibitem{sbert} Reimers and Gurevych, \emph{Sentence-BERT}, 2019.
+        \bibitem{adamw} Loshchilov and Hutter, \emph{Decoupled Weight Decay Regularization}, 2019.
+    \end{thebibliography}
+\end{frame}
+
+\end{document}

@@ -1,10 +1,10 @@
-_base_: rich_relational.yaml
+_base_: round_robin.yaml
 experiment_name: smart
 
 losses:
   smart:
     enabled: true
     epsilon: 1.0e-5
-    lambda_s: 1.0
+    lambda_s: 10.0
     bregman_mu: 1.0
-    bregman_beta: 0.999
+    bregman_beta: 0.995

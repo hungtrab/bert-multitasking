@@ -4,5 +4,5 @@ experiment_name: round_robin
 training:
   strategy: round_robin
   num_epochs: 10
-  batch_size: 32
+  batch_size: 64
   learning_rate: 1.0e-5

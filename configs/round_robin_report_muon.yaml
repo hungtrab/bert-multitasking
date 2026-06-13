@@ -1,0 +1,10 @@
+_base_: round_robin_reportfix.yaml
+experiment_name: round_robin_report_muon
+
+training:
+  optimizer: muon_adamw
+  muon_learning_rate: 0.002
+  muon_momentum: 0.95
+  muon_weight_decay: 0.0
+  muon_ns_steps: 5
+  muon_nesterov: true

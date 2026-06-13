@@ -1,0 +1,29 @@
+_base_: rich_relational.yaml
+experiment_name: report_best_self_impl
+
+model:
+  encoder_backend: mini
+  load_pretrained: true
+  hidden_dropout: 0.3
+  use_relational_layer: true
+  sts_output_scale: 1.0
+
+training:
+  strategy: interleaved
+  batch_type: full
+  num_epochs: 10
+  batch_size: 64
+  eval_batch_size: 64
+  task_batch_sizes:
+    sst: 3
+    quora: 64
+    sts: 2
+  learning_rate: 1.0e-5
+  weight_decay: 0.0
+  lr_schedule: constant
+  warmup_steps: 0
+
+losses:
+  sts_label_scale: 5.0
+  smart:
+    enabled: false

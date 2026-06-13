@@ -13,6 +13,7 @@ from itertools import cycle
 
 from tqdm import tqdm
 
+from .steps import interleaved_steps
 from .trainer import MultitaskTrainer
 
 
@@ -22,7 +23,7 @@ class InterleavedTrainer(MultitaskTrainer):
         sst_iter = cycle(self.loaders.sst_train)
         quora_iter = iter(self.loaders.quora_train)     # the largest
         sts_iter = cycle(self.loaders.sts_train)
-        n_steps = len(self.loaders.quora_train)
+        n_steps = interleaved_steps(self.loaders)
         pbar = tqdm(range(n_steps), desc=f"epoch {self.state.epoch + 1}")
         loss_sum = 0.0; loss_count = 0
 
@@ -33,12 +34,12 @@ class InterleavedTrainer(MultitaskTrainer):
 
             # forward → backward → step per task before next task's forward
             # (shared encoder; see note in round_robin.py).
-            for loss_fn, batch in (
-                (self.sst_loss, sst_batch),
-                (self.quora_loss, quora_batch),
-                (self.sts_loss, sts_batch),
+            for task, loss_fn, batch in (
+                ("sst", self.sst_loss, sst_batch),
+                ("quora", self.quora_loss, quora_batch),
+                ("sts", self.sts_loss, sts_batch),
             ):
-                batch_loss = loss_fn(batch)
+                batch_loss = loss_fn(batch) * self.task_loss_weight(task)
                 self.optimizer_step(batch_loss)
                 loss_sum += batch_loss.item(); loss_count += 1
 

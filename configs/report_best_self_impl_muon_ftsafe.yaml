@@ -1,0 +1,13 @@
+_base_: report_best_self_impl.yaml
+experiment_name: report_best_self_impl_muon_ftsafe
+
+training:
+  optimizer: muon_adamw
+  # Fine-tuning-safe Muon LR. The common 0.002 Muon LR is aimed more at
+  # hidden-layer training from scratch; it is too aggressive for this
+  # pretrained mini-BERT run.
+  muon_learning_rate: 1.0e-4
+  muon_momentum: 0.95
+  muon_weight_decay: 0.0
+  muon_ns_steps: 5
+  muon_nesterov: true

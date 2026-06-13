@@ -3,9 +3,10 @@ experiment_name: interleaved
 
 training:
   strategy: interleaved
-  num_epochs: 5                     # Quora is huge so fewer epochs
+  num_epochs: 10
+  batch_type: full
   task_batch_sizes:
-    sst: 16
+    sst: 3
     quora: 64
-    sts: 16
+    sts: 2
   learning_rate: 1.0e-5

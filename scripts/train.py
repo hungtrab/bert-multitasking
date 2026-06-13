@@ -53,6 +53,12 @@ def main(argv=None) -> int:
         loaders = build_loaders(cfg, tokenizer, num_workers=args.num_workers)
 
     model = MultitaskBERT(cfg)
+    init_checkpoint = cfg.training.get("init_checkpoint")
+    if init_checkpoint:
+        ckpt_path = Path(init_checkpoint)
+        checkpoint = torch.load(ckpt_path, map_location="cpu")
+        model.load_state_dict(checkpoint["model"])
+        log.info(f"loaded model checkpoint from {ckpt_path}")
 
     trainer_cls = {"round_robin": RoundRobinTrainer,
                    "interleaved": InterleavedTrainer}.get(strategy)

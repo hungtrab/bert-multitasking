@@ -14,9 +14,10 @@ model:
   encoder_backend: mini             # mini = self-implemented MiniBert | hf = transformers AutoModel (baseline/parity)
   load_pretrained: true             # false = random-init local BERT, useful for smoke tests
   hidden_size: 768
-  hidden_dropout: 0.1
+  hidden_dropout: 0.3
   freeze_encoder: false             # 'pretrain' (true) vs 'finetune' (false)
   use_relational_layer: false       # rich relational head for Para+STS
+  sts_output_scale: 1.0             # v1/report trains STS against labels scaled to [0, 1]
 
 data:
   sst:
@@ -37,26 +38,30 @@ data:
 training:
   strategy: round_robin             # round_robin | interleaved
   num_epochs: 10
-  batch_size: 32                    # used for all tasks in round_robin
+  batch_size: 64                    # used for all tasks in round_robin
+  eval_batch_size: 64
+  batch_type: small                 # small = STS-limited rrobin | full = v1 interleaved
   task_batch_sizes:                 # used in interleaved
-    sst: 16
+    sst: 3
     quora: 64
-    sts: 16
+    sts: 2
   learning_rate: 1.0e-5
-  weight_decay: 0.01
-  warmup_steps: 200
+  weight_decay: 0.0
+  lr_schedule: constant             # report/v1 did not use warmup+linear decay
+  warmup_steps: 0
   grad_clip: 1.0
   log_interval: 50
   eval_interval_steps: null          # null -> evaluate at end of each epoch
   amp: true                          # mixed-precision
 
 losses:
+  sts_label_scale: 5.0
   smart:
     enabled: false
     epsilon: 1.0e-5                  # adversarial perturbation budget
-    lambda_s: 1.0                    # regularisation weight
+    lambda_s: 10.0                   # v1 pgd_lambda default
     bregman_mu: 1.0                  # proximal step weight
-    bregman_beta: 0.999              # EMA factor
+    bregman_beta: 0.995              # EMA factor
 
 evaluation:
   metrics: [accuracy, pearson, f1]

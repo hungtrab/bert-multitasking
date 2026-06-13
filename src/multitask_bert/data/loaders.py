@@ -92,14 +92,25 @@ def build_loaders(
     sts_test_path = _resolve(data_dir, cfg.data.sts.get("test"))
     sts_test_ds = STSBenchmarkDataset.from_csv(sts_test_path, tokenizer, max_seq_len=max_seq_len) if sts_test_path else None
 
+    if str(cfg.training.get("batch_type", "small")) == "full":
+        quora_bs = int(task_batch_sizes.get("quora", cfg.training.batch_size))
+        num_iterations = min(len(sts_train), max(1, len(quora_train) // quora_bs))
+        task_batch_sizes = {
+            "sst": max(1, len(sst_train) // num_iterations),
+            "quora": quora_bs,
+            "sts": max(1, len(sts_train) // num_iterations),
+        }
+
+    eval_batch_size = int(cfg.training.get("eval_batch_size", cfg.training.batch_size))
+
     return MultitaskLoaders(
         sst_train=_make_loader(sst_train, task_batch_sizes["sst"], shuffle=True, num_workers=num_workers),
-        sst_dev=_make_loader(sst_dev, task_batch_sizes["sst"], shuffle=False, num_workers=num_workers),
-        sst_test=_make_loader(sst_test_ds, task_batch_sizes["sst"], shuffle=False, num_workers=num_workers) if sst_test_ds else None,
+        sst_dev=_make_loader(sst_dev, eval_batch_size, shuffle=False, num_workers=num_workers),
+        sst_test=_make_loader(sst_test_ds, eval_batch_size, shuffle=False, num_workers=num_workers) if sst_test_ds else None,
         quora_train=_make_loader(quora_train, task_batch_sizes["quora"], shuffle=True, num_workers=num_workers),
-        quora_dev=_make_loader(quora_dev, task_batch_sizes["quora"], shuffle=False, num_workers=num_workers),
-        quora_test=_make_loader(quora_test_ds, task_batch_sizes["quora"], shuffle=False, num_workers=num_workers) if quora_test_ds else None,
+        quora_dev=_make_loader(quora_dev, eval_batch_size, shuffle=False, num_workers=num_workers),
+        quora_test=_make_loader(quora_test_ds, eval_batch_size, shuffle=False, num_workers=num_workers) if quora_test_ds else None,
         sts_train=_make_loader(sts_train, task_batch_sizes["sts"], shuffle=True, num_workers=num_workers),
-        sts_dev=_make_loader(sts_dev, task_batch_sizes["sts"], shuffle=False, num_workers=num_workers),
-        sts_test=_make_loader(sts_test_ds, task_batch_sizes["sts"], shuffle=False, num_workers=num_workers) if sts_test_ds else None,
+        sts_dev=_make_loader(sts_dev, eval_batch_size, shuffle=False, num_workers=num_workers),
+        sts_test=_make_loader(sts_test_ds, eval_batch_size, shuffle=False, num_workers=num_workers) if sts_test_ds else None,
     )

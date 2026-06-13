@@ -1,0 +1,7 @@
+_base_: report_best_self_impl_muon_ftsafe.yaml
+experiment_name: report_best_self_impl_muon20_plus10_lr5e5
+
+training:
+  num_epochs: 10
+  muon_learning_rate: 5.0e-5
+  init_checkpoint: runs/report_best_self_impl_muon_ftsafe_20e/best.pt
